@@ -88,6 +88,9 @@ function doctorCommand(args: string[]) {
     }
     console.log(`merged event count: ${definition.events.length}`);
     console.log(`local config: ${options.localConfigFile}`);
+    if (definition.requiredEnvironment.length > 0) {
+      console.log(`required env: ${definition.requiredEnvironment.join(", ")}`);
+    }
     console.log("");
     console.log("[auth]");
     yield* authStatus({
@@ -225,6 +228,18 @@ async function main() {
         });
         yield* calendarDoctor(options);
         const definition = yield* loadCalendarDefinition(options.configFile, process.cwd());
+        const environment: Record<string, string> = {};
+        for (const name of definition.requiredEnvironment) {
+          const value = process.env[name];
+          if (!value) {
+            return yield* Effect.fail(
+              new CliError(
+                `launchd install requires env var ${name} to be set so the background sync can use enabled source adapters.`
+              )
+            );
+          }
+          environment[name] = value;
+        }
         yield* installLaunchdSync({
           label,
           definition,
@@ -232,7 +247,8 @@ async function main() {
           localConfigFile: options.localConfigFile,
           scriptFile,
           projectRoot,
-          syncIntervalSeconds: definition.agents?.["calendar-sync"]?.startIntervalSeconds
+          syncIntervalSeconds: definition.agents?.["calendar-sync"]?.startIntervalSeconds,
+          environment
         });
       })
     );

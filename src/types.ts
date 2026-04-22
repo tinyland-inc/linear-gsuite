@@ -89,6 +89,7 @@ export interface LoadedCalendarDefinition {
   timezone: string;
   calendarId?: string;
   agents?: CalendarPackageManifest["agents"];
+  requiredEnvironment: string[];
   events: ResolvedCalendarEvent[];
   sources: Array<{
     id: string;

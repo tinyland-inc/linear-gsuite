@@ -137,6 +137,7 @@ export function installLaunchdSync(options: {
   scriptFile: string;
   projectRoot: string;
   syncIntervalSeconds?: number;
+  environment?: Record<string, string>;
 }) {
   return Effect.gen(function* () {
     assertDarwin();
@@ -144,6 +145,7 @@ export function installLaunchdSync(options: {
     const targetPlist = plistPath(label);
     const invocation = determineInvocation(options.scriptFile, options.projectRoot);
     const uid = currentUid();
+    const environmentEntries = Object.entries(options.environment ?? {});
     const plist = renderPlist({
       Label: label,
       WorkingDirectory: options.projectRoot,
@@ -156,6 +158,7 @@ export function installLaunchdSync(options: {
         `XDG_CACHE_HOME=${HOME}/.cache`,
         `XDG_DATA_HOME=${HOME}/.local/share`,
         `XDG_STATE_HOME=${HOME}/.local/state`,
+        ...environmentEntries.map(([key, value]) => `${key}=${value}`),
         ...invocation,
         "calendar",
         "sync",

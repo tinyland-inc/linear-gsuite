@@ -65,6 +65,8 @@ node dist/cli.js launchd install sync --config examples/tinyland-business-ops/li
 
 Between intervals, `launchctl` will often report the agent as `state = not running`. That is normal for a healthy oneshot sync job. The real health signal is `last exit code = 0`.
 
+If the package manifest enables source adapters that depend on environment variables, such as `linear-issues`, those variables must be present when you run `launchd install sync`. `linear-gsuite` captures the required values into the installed agent so the background job does not depend on ambient shell state.
+
 ## Install surfaces
 
 This repo is meant to be consumable in a few stable ways:

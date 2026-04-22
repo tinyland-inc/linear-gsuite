@@ -342,6 +342,7 @@ export function loadCalendarDefinition(configFile: string, cwd = process.cwd()) 
         timezone: sourceConfig.timezone,
         calendarId: sourceConfig.calendarId,
         agents: undefined,
+        requiredEnvironment: [],
         events: sourceConfig.events.map((event) => ({
           ...event,
           sourceId: "legacy-events-file",
@@ -368,6 +369,7 @@ export function loadCalendarDefinition(configFile: string, cwd = process.cwd()) 
     const watchPaths = [resolvedConfigFile];
     const events: ResolvedCalendarEvent[] = [];
     const sources: LoadedCalendarDefinition["sources"] = [];
+    const requiredEnvironment = new Set<string>();
     const seenIdentityKeys = new Set<string>();
     let timezone = manifest.timezone;
 
@@ -375,6 +377,7 @@ export function loadCalendarDefinition(configFile: string, cwd = process.cwd()) 
       if (source.enabled === false) continue;
 
       if (source.type === "linear-issues") {
+        requiredEnvironment.add(source.apiKeyEnv);
         const resolvedEvents = yield* resolveLinearIssuesSource(source);
         if (!timezone) timezone = manifest.timezone ?? (Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
         for (const event of resolvedEvents) {
@@ -443,6 +446,7 @@ export function loadCalendarDefinition(configFile: string, cwd = process.cwd()) 
       timezone,
       calendarId: manifest.calendarId,
       agents: manifest.agents,
+      requiredEnvironment: Array.from(requiredEnvironment).sort(),
       events,
       sources,
       watchPaths
