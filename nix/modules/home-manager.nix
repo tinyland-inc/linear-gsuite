@@ -127,7 +127,7 @@ in
         description = ''
           Map of environment variable name to file path. Home Manager passes the
           file paths through to `linear-gsuite launchd install sync` as
-          `${NAME}_FILE`, and the CLI loads the values at runtime.
+          `''${NAME}_FILE`, and the CLI loads the values at runtime.
 
           This is the preferred way to wire secrets such as `LINEAR_API_KEY`
           from `sops-nix` or another secret manager.
