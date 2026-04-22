@@ -221,12 +221,6 @@ async function main() {
 
     await run(
       Effect.gen(function* () {
-        yield* authStatus({
-          clientSecretsFile: options.oauthClientSecretsFile,
-          tokenFile: options.oauthTokenFile,
-          localConfigFile: options.localConfigFile
-        });
-        yield* calendarDoctor(options);
         const definition = yield* loadCalendarDefinition(options.configFile, process.cwd());
         const environment: Record<string, string> = {};
         for (const name of definition.requiredEnvironment) {
