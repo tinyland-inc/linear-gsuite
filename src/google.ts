@@ -523,15 +523,6 @@ export function authStatus(options: {
       return yield* Effect.fail(fail("Calendar API probe failed."));
     }
 
-    yield* saveLocalConfig(
-      {
-        authMode: "user",
-        oauthClientFile: clientSecretsFile,
-        oauthClientManagedFile: clientSecretsFile,
-        oauthTokenFile: tokenFile
-      },
-      options.localConfigFile
-    );
     const count = Array.isArray((result.data as Record<string, unknown>).items)
       ? ((result.data as Record<string, unknown>).items as unknown[]).length
       : 0;
