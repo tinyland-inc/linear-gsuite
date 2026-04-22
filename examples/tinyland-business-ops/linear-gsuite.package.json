@@ -1,0 +1,20 @@
+{
+  "name": "tinyland-business-ops-calendar",
+  "version": 1,
+  "sources": [
+    {
+      "id": "business-ops-recurring",
+      "type": "json-recurring-events",
+      "path": "./events.json",
+      "enabled": true,
+      "legacyIdentity": true,
+      "description": "Recurring business operations cadence."
+    }
+  ],
+  "agents": {
+    "calendar-sync": {
+      "label": "dev.tinyland.google-calendar-sync",
+      "startIntervalSeconds": 21600
+    }
+  }
+}

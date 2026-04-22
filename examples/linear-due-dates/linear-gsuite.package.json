@@ -1,0 +1,23 @@
+{
+  "name": "tinyland-linear-due-dates",
+  "version": 1,
+  "timezone": "America/New_York",
+  "sources": [
+    {
+      "id": "business-ops-due-dates",
+      "type": "linear-issues",
+      "apiKeyEnv": "LINEAR_API_KEY",
+      "assignee": "me",
+      "teamKey": "TIN",
+      "dueWithinDays": 14,
+      "excludeStateTypes": ["completed", "canceled"],
+      "description": "Projects due-dated Linear issues into Google Calendar as all-day events."
+    }
+  ],
+  "agents": {
+    "calendar-sync": {
+      "label": "dev.tinyland.linear-due-dates-sync",
+      "startIntervalSeconds": 21600
+    }
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "timezone": "America/New_York",
+  "calendarId": "",
+  "events": [
+    {
+      "id": "tinyland-weekly-business-review",
+      "summary": "Weekly Business Review — Tinyland",
+      "description": "Open Business Ops - Due Soon, Revenue, Compliance, and Hiring views. Review invoices, obligations, and next actions.",
+      "start": "2026-04-27T09:00:00",
+      "end": "2026-04-27T09:30:00",
+      "recurrence": [
+        "RRULE:FREQ=WEEKLY;BYDAY=MO"
+      ],
+      "reminders": {
+        "email": 1440,
+        "popup": 30
+      }
+    },
+    {
+      "id": "tinyland-daily-time-log",
+      "summary": "Daily Billable Time Log",
+      "description": "Open data/operations/time-log.csv, add today's billable work, then check Business Ops - Due Soon before ending the day.",
+      "start": "2026-04-22T17:30:00",
+      "end": "2026-04-22T17:40:00",
+      "recurrence": [
+        "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+      ],
+      "reminders": {
+        "email": 1440,
+        "popup": 10
+      }
+    },
+    {
+      "id": "tinyland-friday-time-review",
+      "summary": "Friday Time Log Review",
+      "description": "Backfill missed time entries, compare Linear work to the time log, and close the week without hidden billable drift.",
+      "start": "2026-04-24T16:00:00",
+      "end": "2026-04-24T16:15:00",
+      "recurrence": [
+        "RRULE:FREQ=WEEKLY;BYDAY=FR"
+      ],
+      "reminders": {
+        "email": 1440,
+        "popup": 15
+      }
+    },
+    {
+      "id": "tinyland-monthly-invoicing",
+      "summary": "Monthly Invoicing Day",
+      "description": "Turn last month's time log into Stripe invoices. If the 1st lands on a weekend, move this instance manually to the next business day.",
+      "start": "2026-05-01T09:00:00",
+      "end": "2026-05-01T10:00:00",
+      "recurrence": [
+        "RRULE:FREQ=MONTHLY;BYMONTHDAY=1"
+      ],
+      "reminders": {
+        "email": 1440,
+        "popup": 30
+      }
+    },
+    {
+      "id": "tinyland-monthly-close",
+      "summary": "Monthly Financial Close",
+      "description": "Reconcile Stripe to GnuCash, review AR aging, and confirm books match reality. If the 1st lands on a weekend, move this instance manually to the next business day.",
+      "start": "2026-05-01T10:00:00",
+      "end": "2026-05-01T12:00:00",
+      "recurrence": [
+        "RRULE:FREQ=MONTHLY;BYMONTHDAY=1"
+      ],
+      "reminders": {
+        "email": 1440,
+        "popup": 30
+      }
+    },
+    {
+      "id": "tinyland-quarterly-review",
+      "summary": "Quarterly Business Review",
+      "description": "Review revenue lines, pricing, GTM docs, hiring, and whether the current business operations system is still truthful.",
+      "start": "2026-07-01T13:00:00",
+      "end": "2026-07-01T16:00:00",
+      "recurrence": [
+        "RRULE:FREQ=MONTHLY;INTERVAL=3;BYMONTHDAY=1"
+      ],
+      "reminders": {
+        "email": 2880,
+        "popup": 60
+      }
+    },
+    {
+      "id": "tinyland-maine-annual-prep",
+      "summary": "Maine Annual Reports Prep",
+      "description": "Prepare Maine annual report filings for all entities due June 1.",
+      "start": "2026-05-15T10:00:00",
+      "end": "2026-05-15T11:00:00",
+      "recurrence": [
+        "RRULE:FREQ=YEARLY"
+      ],
+      "reminders": {
+        "email": 10080,
+        "popup": 1440
+      }
+    },
+    {
+      "id": "tinyland-domain-audit",
+      "summary": "Annual Domain Audit",
+      "description": "Verify registrar state, nameservers, autorenew, and billing methods across all core domains.",
+      "start": "2026-05-15T11:00:00",
+      "end": "2026-05-15T11:30:00",
+      "recurrence": [
+        "RRULE:FREQ=YEARLY"
+      ],
+      "reminders": {
+        "email": 10080,
+        "popup": 1440
+      }
+    }
+  ]
+}

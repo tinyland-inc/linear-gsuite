@@ -1,0 +1,79 @@
+{
+  "name": "@tummycrypt/linear-gsuite",
+  "version": "0.1.0",
+  "description": "Linear and Google Workspace automation toolkit for calendar-facing operational workflows",
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "license": "MIT",
+  "homepage": "https://github.com/tinyland-inc/linear-gsuite",
+  "bugs": {
+    "url": "https://github.com/tinyland-inc/linear-gsuite/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tinyland-inc/linear-gsuite.git"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "linear-gsuite": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "nix",
+    "examples"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "test": "vitest run",
+    "clean": "rm -rf dist",
+    "check:package": "publint",
+    "prepublishOnly": "pnpm build && pnpm check:package"
+  },
+  "dependencies": {
+    "effect": "^3.19.14"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "publint": "^0.3.18",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  },
+  "keywords": [
+    "linear",
+    "google-calendar",
+    "effect",
+    "automation",
+    "home-manager",
+    "launchd"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
+    "overrides": {
+      "effect": "^3.19.14"
+    }
+  }
+}

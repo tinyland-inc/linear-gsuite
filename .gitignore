@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.direnv
+.DS_Store
+.turbo
+.bazel-cache
+coverage
+*.log
+result
+bazel-bin
+bazel-out
+bazel-testlogs
+bazel-linear-gsuite
