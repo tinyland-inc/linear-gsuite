@@ -3,6 +3,8 @@
 let
   cfg = config.programs.linear-gsuite;
   jsonFormat = pkgs.formats.json { };
+  launchdLiteralEnvironment = cfg.calendar.launchd.environment or { };
+  launchdFileEnvironment = cfg.calendar.launchd.environmentFromFiles or { };
 
   managedConfig =
     (cfg.config or { })
@@ -98,6 +100,39 @@ in
         default = pkgs.stdenv.isDarwin;
         description = "Install the launchd sync agent during Home Manager activation on macOS.";
       };
+
+      launchd.environment = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = { };
+        example = {
+          LINEAR_API_KEY = "lin_api_xxx";
+        };
+        description = ''
+          Extra environment values passed to `linear-gsuite launchd install sync`
+          during Home Manager activation.
+
+          These values are captured into the installed launch agent so enabled
+          source adapters can run under the clean `env -i` launchd environment.
+        '';
+      };
+
+      launchd.environmentFromFiles = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = { };
+        example = lib.literalExpression ''
+          {
+            LINEAR_API_KEY = config.sops.secrets.linear-api-key.path;
+          }
+        '';
+        description = ''
+          Map of environment variable name to file path. Home Manager reads each
+          file during activation and passes the resulting value to
+          `linear-gsuite launchd install sync`.
+
+          This is the preferred way to wire secrets such as `LINEAR_API_KEY`
+          from `sops-nix` or another secret manager.
+        '';
+      };
     };
   };
 
@@ -112,7 +147,18 @@ in
     home.activation.linearGsuiteLaunchd = lib.mkIf (cfg.calendar.enable && cfg.calendar.launchd.enable && pkgs.stdenv.isDarwin && cfg.calendar.packageFile != null) (
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         if [ -x "${cfg.package}/bin/linear-gsuite" ]; then
-          $DRY_RUN_CMD "${cfg.package}/bin/linear-gsuite" launchd install sync \
+          env_args=()
+          ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: value: ''
+            env_args+=(${lib.escapeShellArg "${name}=${value}"})
+          '') launchdLiteralEnvironment)}
+          ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: file: ''
+            if [ ! -r ${lib.escapeShellArg file} ]; then
+              echo "linear-gsuite: missing readable environment file for ${name}: ${file}" >&2
+              exit 1
+            fi
+            env_args+=("${name}=$(cat ${lib.escapeShellArg file})")
+          '') launchdFileEnvironment)}
+          $DRY_RUN_CMD /usr/bin/env "''${env_args[@]}" "${cfg.package}/bin/linear-gsuite" launchd install sync \
             --config ${lib.escapeShellArg cfg.calendar.packageFile} || true
         fi
       ''

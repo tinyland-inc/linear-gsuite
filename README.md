@@ -91,19 +91,37 @@ Example:
     inputs.linear-gsuite.homeManagerModules.default
   ];
 
-  programs.linear-gsuite = {
-    enable = true;
-
-    calendar = {
+  let
+    linearEnvName = "LINEAR_API_KEY";
+  in {
+    programs.linear-gsuite = {
       enable = true;
-      calendarId = "primary";
-      packageFile = "/Users/jess/git/finances/data/operations/calendar/linear-gsuite.package.json";
+
+      calendar = {
+        enable = true;
+        calendarId = "primary";
+        packageFile = "/Users/jess/git/finances/data/operations/calendar/linear-gsuite.package.json";
+        launchd.environmentFromFiles = builtins.listToAttrs [
+          {
+            name = linearEnvName;
+            value = config.sops.secrets.linear-api-key.path;
+          }
+        ];
+      };
     };
   };
 }
 ```
 
 That installs the CLI, writes `~/.config/linear-gsuite/config.json`, and can install the macOS `launchd` sync agent during activation.
+
+Use `launchd.environmentFromFiles` for secrets such as `LINEAR_API_KEY`. This is the intended Home Manager path for `linear-issues` sources.
+
+There is also a concrete Tinyland example in:
+
+```text
+examples/tinyland-business-ops/home-manager.nix
+```
 
 ### Local JavaScript install
 
