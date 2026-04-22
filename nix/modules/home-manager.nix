@@ -7,7 +7,7 @@ let
   launchdFileEnvironment = cfg.calendar.launchd.environmentFromFiles or { };
 
   managedConfig =
-    (cfg.config or { })
+    (if cfg.config == null then { } else cfg.config)
     // lib.optionalAttrs cfg.calendar.enable {
       authMode = cfg.calendar.authMode;
       calendarId = cfg.calendar.calendarId;
