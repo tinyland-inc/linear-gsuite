@@ -138,6 +138,7 @@ export function installLaunchdSync(options: {
   projectRoot: string;
   syncIntervalSeconds?: number;
   environment?: Record<string, string>;
+  environmentFiles?: Record<string, string>;
 }) {
   return Effect.gen(function* () {
     assertDarwin();
@@ -146,6 +147,7 @@ export function installLaunchdSync(options: {
     const invocation = determineInvocation(options.scriptFile, options.projectRoot);
     const uid = currentUid();
     const environmentEntries = Object.entries(options.environment ?? {});
+    const environmentFileEntries = Object.entries(options.environmentFiles ?? {});
     const plist = renderPlist({
       Label: label,
       WorkingDirectory: options.projectRoot,
@@ -159,6 +161,7 @@ export function installLaunchdSync(options: {
         `XDG_DATA_HOME=${HOME}/.local/share`,
         `XDG_STATE_HOME=${HOME}/.local/state`,
         ...environmentEntries.map(([key, value]) => `${key}=${value}`),
+        ...environmentFileEntries.map(([key, value]) => `${key}_FILE=${path.resolve(value)}`),
         ...invocation,
         "calendar",
         "sync",
@@ -170,7 +173,14 @@ export function installLaunchdSync(options: {
       RunAtLoad: true,
       StartInterval: options.syncIntervalSeconds ?? 21600,
       WatchPaths: Array.from(
-        new Set([options.configFile, ...options.definition.watchPaths, options.localConfigFile].map((file) => path.resolve(file)))
+        new Set(
+          [
+            options.configFile,
+            ...options.definition.watchPaths,
+            options.localConfigFile,
+            ...environmentFileEntries.map(([, file]) => file)
+          ].map((file) => path.resolve(file))
+        )
       ),
       StandardOutPath: path.join(LOG_DIR, "linear-gsuite-calendar-sync.out.log"),
       StandardErrorPath: path.join(LOG_DIR, "linear-gsuite-calendar-sync.err.log")

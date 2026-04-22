@@ -65,7 +65,7 @@ node dist/cli.js launchd install sync --config examples/tinyland-business-ops/li
 
 Between intervals, `launchctl` will often report the agent as `state = not running`. That is normal for a healthy oneshot sync job. The real health signal is `last exit code = 0`.
 
-If the package manifest enables source adapters that depend on environment variables, such as `linear-issues`, those variables must be present when you run `launchd install sync`. `linear-gsuite` captures the required values into the installed agent so the background job does not depend on ambient shell state.
+If the package manifest enables source adapters that depend on environment variables, such as `linear-issues`, those variables must be present when you run `launchd install sync`. `linear-gsuite` can capture either the literal values or `NAME_FILE=/path` references into the installed agent so the background job does not depend on ambient shell state. Prefer the `_FILE` form for secrets.
 
 ## Install surfaces
 
@@ -115,7 +115,7 @@ Example:
 
 That installs the CLI, writes `~/.config/linear-gsuite/config.json`, and can install the macOS `launchd` sync agent during activation.
 
-Use `launchd.environmentFromFiles` for secrets such as `LINEAR_API_KEY`. This is the intended Home Manager path for `linear-issues` sources.
+Use `launchd.environmentFromFiles` for secrets such as `LINEAR_API_KEY`. Home Manager passes these through as `LINEAR_API_KEY_FILE=/path`, and `linear-gsuite` reads the file at runtime. This is the intended path for `linear-issues` sources.
 
 There is also a concrete Tinyland example in:
 
