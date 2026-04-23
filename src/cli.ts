@@ -23,7 +23,7 @@ import {
 } from "./google.js";
 import { installLaunchdSync, statusLaunchdSync, uninstallLaunchdSync } from "./launchd.js";
 import type { AuthMode, SyncOptions } from "./types.js";
-import { CliError, discoverProjectRoot } from "./utils.js";
+import { CliError, discoverProjectRoot, hydrateProcessEnvFromFiles } from "./utils.js";
 
 const scriptFile = fileURLToPath(import.meta.url);
 const projectRoot = discoverProjectRoot(scriptFile);
@@ -112,6 +112,7 @@ function doctorCommand(args: string[]) {
 }
 
 async function main() {
+  hydrateProcessEnvFromFiles();
   const args = process.argv.slice(2);
   if (args.length === 0) {
     usage();
@@ -221,20 +222,20 @@ async function main() {
 
     await run(
       Effect.gen(function* () {
-        yield* authStatus({
-          clientSecretsFile: options.oauthClientSecretsFile,
-          tokenFile: options.oauthTokenFile,
-          localConfigFile: options.localConfigFile
-        });
-        yield* calendarDoctor(options);
         const definition = yield* loadCalendarDefinition(options.configFile, process.cwd());
         const environment: Record<string, string> = {};
+        const environmentFiles: Record<string, string> = {};
         for (const name of definition.requiredEnvironment) {
           const value = process.env[name];
+          const file = process.env[`${name}_FILE`];
+          if (file) {
+            environmentFiles[name] = file;
+            continue;
+          }
           if (!value) {
             return yield* Effect.fail(
               new CliError(
-                `launchd install requires env var ${name} to be set so the background sync can use enabled source adapters.`
+                `launchd install requires ${name} or ${name}_FILE so the background sync can use enabled source adapters.`
               )
             );
           }
@@ -248,7 +249,8 @@ async function main() {
           scriptFile,
           projectRoot,
           syncIntervalSeconds: definition.agents?.["calendar-sync"]?.startIntervalSeconds,
-          environment
+          environment,
+          environmentFiles
         });
       })
     );

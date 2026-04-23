@@ -58,6 +58,23 @@ interface RuntimeContext {
   serviceAccountFile: string;
 }
 
+interface GoogleCalendarEvent {
+  id?: string;
+  summary?: string;
+  status?: string;
+  start?: {
+    date?: string;
+    dateTime?: string;
+  };
+  end?: {
+    date?: string;
+    dateTime?: string;
+  };
+  extendedProperties?: {
+    private?: Record<string, string>;
+  };
+}
+
 function b64url(input: string | Buffer): string {
   return Buffer.from(input)
     .toString("base64")
@@ -80,6 +97,19 @@ function stableGoogleEventId(identityKey: string) {
   return `lgs${crypto.createHash("sha1").update(identityKey).digest("hex")}`;
 }
 
+function eventStartValue(event: Pick<ResolvedCalendarEvent, "timeKind" | "start"> | GoogleCalendarEvent) {
+  if ("timeKind" in event) return event.start;
+  return event.start?.dateTime || event.start?.date || "";
+}
+
+function sameEventStart(left: string, right: string) {
+  if (left === right) return true;
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return false;
+  return leftTime === rightTime;
+}
+
 export function apiRequest(token: string, method: string, url: string, body: unknown = null) {
   return effectPromise(`google api ${method} ${url}`, async (): Promise<ApiResult> => {
     const response = await fetch(url, {
@@ -98,6 +128,96 @@ export function apiRequest(token: string, method: string, url: string, body: unk
       data = { raw: text };
     }
     return { ok: response.ok, status: response.status, data };
+  });
+}
+
+function listCalendarEvents(
+  token: string,
+  calendarId: string,
+  searchParams: Record<string, string | undefined>
+) {
+  return Effect.gen(function* () {
+    const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
+    for (const [key, value] of Object.entries(searchParams)) {
+      if (value) url.searchParams.set(key, value);
+    }
+    const result = yield* apiRequestWithRetry(token, "GET", url.toString());
+    if (!result.ok) {
+      return yield* Effect.fail(
+        fail(`Failed to list calendar events: ${result.status} ${JSON.stringify(result.data)}`)
+      );
+    }
+    const items = Array.isArray((result.data as Record<string, unknown>).items)
+      ? ((result.data as Record<string, unknown>).items as GoogleCalendarEvent[])
+      : [];
+    return items;
+  });
+}
+
+function deleteCalendarEvent(token: string, calendarId: string, eventId: string) {
+  return Effect.gen(function* () {
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=none`;
+    const result = yield* apiRequestWithRetry(token, "DELETE", url);
+    if (!(result.ok || result.status === 404)) {
+      return yield* Effect.fail(
+        fail(`Failed to delete duplicate event ${eventId}: ${result.status} ${JSON.stringify(result.data)}`)
+      );
+    }
+  });
+}
+
+function pruneSyncIdDuplicates(
+  token: string,
+  calendarId: string,
+  event: ResolvedCalendarEvent
+) {
+  return Effect.gen(function* () {
+    const canonicalId = stableGoogleEventId(event.identityKey);
+    const syncMatches = yield* listCalendarEvents(token, calendarId, {
+      privateExtendedProperty: `sync_id=${event.id}`,
+      singleEvents: "false",
+      maxResults: "50"
+    });
+
+    for (const duplicate of syncMatches) {
+      if (!duplicate.id || duplicate.id === canonicalId) continue;
+      yield* deleteCalendarEvent(token, calendarId, duplicate.id);
+      console.log(`removed-duplicate\t${event.id}\t${duplicate.id}`);
+    }
+
+    const startValue = eventStartValue(event);
+    if (!startValue) return;
+
+    const startDate = new Date(startValue);
+    if (Number.isNaN(startDate.valueOf())) return;
+    const rangeStart = new Date(startDate.getTime() - 12 * 60 * 60 * 1000).toISOString();
+    const rangeEnd = new Date(startDate.getTime() + 12 * 60 * 60 * 1000).toISOString();
+    const nearby = yield* listCalendarEvents(token, calendarId, {
+      singleEvents: "false",
+      maxResults: "50",
+      timeMin: rangeStart,
+      timeMax: rangeEnd
+    });
+    const summaryMatches = yield* listCalendarEvents(token, calendarId, {
+      singleEvents: "false",
+      maxResults: "50",
+      q: event.summary
+    });
+    const candidates = [...nearby, ...summaryMatches];
+    const seenCandidateIds = new Set<string>();
+
+    for (const candidate of candidates) {
+      if (!candidate.id || candidate.id === canonicalId) continue;
+      if (seenCandidateIds.has(candidate.id)) continue;
+      seenCandidateIds.add(candidate.id);
+      if ((candidate.summary || "") !== event.summary) continue;
+      if (!sameEventStart(eventStartValue(candidate), startValue)) continue;
+      const privateProps = candidate.extendedProperties?.private ?? {};
+      if (privateProps.sync_id === event.id) continue;
+      if (privateProps.source === "linear-gsuite") continue;
+      yield* deleteCalendarEvent(token, calendarId, candidate.id);
+      console.log(`removed-orphan\t${event.id}\t${candidate.id}`);
+    }
   });
 }
 
@@ -523,15 +643,6 @@ export function authStatus(options: {
       return yield* Effect.fail(fail("Calendar API probe failed."));
     }
 
-    yield* saveLocalConfig(
-      {
-        authMode: "user",
-        oauthClientFile: clientSecretsFile,
-        oauthClientManagedFile: clientSecretsFile,
-        oauthTokenFile: tokenFile
-      },
-      options.localConfigFile
-    );
     const count = Array.isArray((result.data as Record<string, unknown>).items)
       ? ((result.data as Record<string, unknown>).items as unknown[]).length
       : 0;
@@ -680,13 +791,15 @@ export function setCalendarId(calendarId: string, localConfigFile: string) {
 export function showSyncedEvents(localConfigFile: string) {
   return Effect.gen(function* () {
     const localConfig = yield* loadLocalConfig(localConfigFile);
-    if (!localConfig.oauthClientFile && !localConfig.oauthClientManagedFile) {
+    const clientFile =
+      localConfig.oauthClientManagedFile ||
+      localConfig.oauthClientFile ||
+      (fileExists(DEFAULT_MANAGED_OAUTH_CLIENT) ? DEFAULT_MANAGED_OAUTH_CLIENT : "");
+    if (!clientFile) {
       return yield* Effect.fail(
-        fail(`No oauth client recorded in ${expandHome(localConfigFile)}. Run auth login first.`)
+        fail(`No oauth client available in ${expandHome(localConfigFile)} or ${DEFAULT_MANAGED_OAUTH_CLIENT}. Run auth login first.`)
       );
     }
-
-    const clientFile = localConfig.oauthClientManagedFile || localConfig.oauthClientFile || DEFAULT_MANAGED_OAUTH_CLIENT;
     const tokenFile = localConfig.oauthTokenFile || DEFAULT_OAUTH_TOKEN;
     const { accessToken } = yield* refreshUserAccessToken(clientFile, tokenFile);
     const calendarId = localConfig.calendarId || "primary";
@@ -741,6 +854,7 @@ export function syncCalendar(options: SyncOptions, cwd = process.cwd()) {
         if (!update.ok) {
           return yield* Effect.fail(fail(`Failed to update ${event.id}: ${update.status} ${JSON.stringify(update.data)}`));
         }
+        yield* pruneSyncIdDuplicates(token.accessToken, runtime.calendarId, event);
         console.log(`updated\t${event.id}`);
         continue;
       }
@@ -758,6 +872,7 @@ export function syncCalendar(options: SyncOptions, cwd = process.cwd()) {
       if (!create.ok) {
         return yield* Effect.fail(fail(`Failed to create ${event.id}: ${create.status} ${JSON.stringify(create.data)}`));
       }
+      yield* pruneSyncIdDuplicates(token.accessToken, runtime.calendarId, event);
       console.log(`created\t${event.id}`);
     }
   });

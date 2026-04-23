@@ -98,3 +98,19 @@ export function discoverProjectRoot(currentFile: string): string {
   return path.resolve(path.dirname(currentFile), "..");
 }
 
+function trimTrailingLineEndings(value: string) {
+  return value.replace(/[\r\n]+$/, "");
+}
+
+export function hydrateProcessEnvFromFiles(env: NodeJS.ProcessEnv = process.env) {
+  for (const [name, file] of Object.entries(env)) {
+    if (!name.endsWith("_FILE") || !file) continue;
+    const targetName = name.slice(0, -5);
+    if (!targetName || env[targetName]) continue;
+    const resolved = expandHome(file);
+    if (!fs.existsSync(resolved)) {
+      throw fail(`Environment file for ${targetName} not found: ${file}`);
+    }
+    env[targetName] = trimTrailingLineEndings(fs.readFileSync(resolved, "utf8"));
+  }
+}
