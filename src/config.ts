@@ -271,6 +271,30 @@ export function discoverOAuthClientFile(explicitFile?: string) {
   });
 }
 
+export function loadCalendarRequiredEnvironment(configFile: string, cwd = process.cwd()) {
+  return Effect.gen(function* () {
+    const resolvedConfigFile = resolveFromCwd(configFile, cwd);
+    const raw = yield* readJsonUnknown(resolvedConfigFile);
+    if (isRecord(raw) && Array.isArray(raw.events)) {
+      return {
+        configFile: resolvedConfigFile,
+        requiredEnvironment: []
+      };
+    }
+
+    const manifest = normalizeManifest(raw, resolvedConfigFile);
+    const requiredEnvironment = new Set<string>();
+    for (const source of manifest.sources) {
+      if (source.enabled === false) continue;
+      if (source.type === "linear-issues") requiredEnvironment.add(source.apiKeyEnv);
+    }
+    return {
+      configFile: resolvedConfigFile,
+      requiredEnvironment: Array.from(requiredEnvironment)
+    };
+  });
+}
+
 function scoreClientFile(file: string): number {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as { installed?: Record<string, unknown> };

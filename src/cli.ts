@@ -8,7 +8,8 @@ import {
   DEFAULT_OAUTH_TOKEN,
   DEFAULT_SERVICE_ACCOUNT,
   discoverCalendarPackageFile,
-  loadCalendarDefinition
+  loadCalendarDefinition,
+  loadCalendarRequiredEnvironment
 } from "./config.js";
 import {
   authLogin,
@@ -23,13 +24,21 @@ import {
 } from "./google.js";
 import { installLaunchdSync, statusLaunchdSync, uninstallLaunchdSync } from "./launchd.js";
 import type { AuthMode, SyncOptions } from "./types.js";
-import { CliError, discoverProjectRoot, hydrateProcessEnvFromFiles } from "./utils.js";
+import {
+  CliError,
+  discoverProjectRoot,
+  formatEnvironmentRequirementStatus,
+  inspectEnvironmentRequirement
+} from "./utils.js";
+import { formatVersionInfo, getVersionInfo } from "./version.js";
 
 const scriptFile = fileURLToPath(import.meta.url);
 const projectRoot = discoverProjectRoot(scriptFile);
 
 function usage() {
   console.log(`Usage:
+  linear-gsuite version
+  linear-gsuite --version
   linear-gsuite doctor [--config FILE] [--local-config-file FILE]
   linear-gsuite auth <login|status|logout> [--client-secrets-file FILE] [--token-file FILE] [--local-config-file FILE] [--no-open]
   linear-gsuite calendar <doctor|list-calendars|set-calendar|sync|show-events> [args...]
@@ -76,9 +85,23 @@ function run(effect: Effect.Effect<void, CliError>) {
   );
 }
 
+function printEnvironmentRequirements(configFile: string) {
+  return Effect.gen(function* () {
+    const env = yield* loadCalendarRequiredEnvironment(configFile, process.cwd());
+    if (env.requiredEnvironment.length === 0) return;
+
+    console.log("[environment]");
+    for (const name of env.requiredEnvironment) {
+      console.log(`- ${formatEnvironmentRequirementStatus(inspectEnvironmentRequirement(name))}`);
+    }
+    console.log("");
+  });
+}
+
 function doctorCommand(args: string[]) {
   return Effect.gen(function* () {
     const options = yield* syncOptionsFromArgs(args, true);
+    yield* printEnvironmentRequirements(options.configFile);
     const definition = yield* loadCalendarDefinition(options.configFile, process.cwd());
     console.log(`package: ${path.basename(definition.configFile)}`);
     console.log(`package config: ${definition.configFile}`);
@@ -88,9 +111,6 @@ function doctorCommand(args: string[]) {
     }
     console.log(`merged event count: ${definition.events.length}`);
     console.log(`local config: ${options.localConfigFile}`);
-    if (definition.requiredEnvironment.length > 0) {
-      console.log(`required env: ${definition.requiredEnvironment.join(", ")}`);
-    }
     console.log("");
     console.log("[auth]");
     yield* authStatus({
@@ -112,11 +132,15 @@ function doctorCommand(args: string[]) {
 }
 
 async function main() {
-  hydrateProcessEnvFromFiles();
   const args = process.argv.slice(2);
   if (args.length === 0) {
     usage();
     process.exit(1);
+    return;
+  }
+
+  if (args[0] === "version" || args[0] === "--version" || args[0] === "-v") {
+    console.log(formatVersionInfo(getVersionInfo(projectRoot)));
     return;
   }
 
@@ -186,7 +210,12 @@ async function main() {
 
     const options = await Effect.runPromise(syncOptionsFromArgs(args.slice(2), command === "doctor" || command === "sync"));
     if (command === "doctor") {
-      await run(calendarDoctor(options));
+      await run(
+        Effect.gen(function* () {
+          yield* printEnvironmentRequirements(options.configFile);
+          yield* calendarDoctor(options);
+        })
+      );
       return;
     }
     if (command === "list-calendars") {
@@ -229,6 +258,12 @@ async function main() {
           const value = process.env[name];
           const file = process.env[`${name}_FILE`];
           if (file) {
+            const status = inspectEnvironmentRequirement(name);
+            if (!status.fileReadable) {
+              return yield* Effect.fail(
+                new CliError(`launchd install requires readable ${status.fileVariable}. ${formatEnvironmentRequirementStatus(status)}.`)
+              );
+            }
             environmentFiles[name] = file;
             continue;
           }

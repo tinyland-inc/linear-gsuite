@@ -5,7 +5,13 @@ import type {
   ReminderOverrides,
   ResolvedCalendarEvent
 } from "./types.js";
-import { effectPromise, fail } from "./utils.js";
+import {
+  effectPromise,
+  fail,
+  formatEnvironmentRequirementStatus,
+  hydrateEnvironmentRequirement,
+  inspectEnvironmentRequirement
+} from "./utils.js";
 
 const LINEAR_GRAPHQL_ENDPOINT = "https://api.linear.app/graphql";
 const DEFAULT_LINEAR_REMINDERS: ReminderOverrides = {
@@ -345,10 +351,12 @@ function fetchLinearIssuePage(apiKey: string, after = "") {
 
 export function resolveLinearIssuesSource(source: LinearIssuesSource) {
   return Effect.gen(function* () {
+    hydrateEnvironmentRequirement(source.apiKeyEnv);
     const apiKey = process.env[source.apiKeyEnv];
     if (!apiKey) {
+      const status = inspectEnvironmentRequirement(source.apiKeyEnv);
       return yield* Effect.fail(
-        fail(`Linear source ${source.id} requires env var ${source.apiKeyEnv} to be set.`)
+        fail(`Linear source ${source.id} requires env var ${source.apiKeyEnv} to be set. ${formatEnvironmentRequirementStatus(status)}.`)
       );
     }
 

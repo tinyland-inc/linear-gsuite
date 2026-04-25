@@ -1,12 +1,20 @@
 { pkgs
 , lib ? pkgs.lib
 , version ? "0.1.0-dev"
+, buildRevision ? "unknown"
+, buildDirty ? false
 , packageSrc ? lib.cleanSource ./..
 }:
 
 let
   nodejs = pkgs.nodejs_22;
   pnpm = pkgs.pnpm_9;
+  buildInfo = builtins.toJSON {
+    inherit version;
+    revision = buildRevision;
+    dirty = buildDirty;
+    source = "nix";
+  };
 in
 pkgs.stdenv.mkDerivation {
   pname = "linear-gsuite";
@@ -46,6 +54,7 @@ pkgs.stdenv.mkDerivation {
     cp -r dist "$out/lib/linear-gsuite/"
     cp -a node_modules "$out/lib/linear-gsuite/"
     cp package.json README.md LICENSE "$out/lib/linear-gsuite/"
+    printf '%s\n' '${buildInfo}' > "$out/lib/linear-gsuite/build-info.json"
     if [ -d nix ]; then
       cp -r nix "$out/lib/linear-gsuite/"
     fi
