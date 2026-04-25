@@ -41,8 +41,16 @@ function usage() {
   linear-gsuite --version
   linear-gsuite doctor [--config FILE] [--local-config-file FILE]
   linear-gsuite auth <login|status|logout> [--client-secrets-file FILE] [--token-file FILE] [--local-config-file FILE] [--no-open]
-  linear-gsuite calendar <doctor|list-calendars|set-calendar|sync|show-events> [args...]
+  linear-gsuite calendar sync [--config FILE] [--dry-run] [--auth-mode auto|user|service-account] [--calendar-id ID]
+  linear-gsuite calendar <doctor|list-calendars|set-calendar|show-events> [--config FILE] [--local-config-file FILE]
   linear-gsuite launchd <install|uninstall|status> sync [--config FILE] [--local-config-file FILE]
+
+Flags:
+  --config FILE              Calendar package manifest (auto-discovered if omitted)
+  --local-config-file FILE   Local config (default: ~/.config/linear-gsuite/config.json)
+  --dry-run                  Log what would change without writing to Google Calendar
+  --auth-mode MODE           Force auth mode: auto, user, or service-account
+  --calendar-id ID           Override target calendar (default: from config or "primary")
 `);
 }
 

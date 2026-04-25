@@ -69,9 +69,6 @@
     "node": ">=22 <25"
   },
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ],
     "overrides": {
       "effect": "^3.19.14"
     }
