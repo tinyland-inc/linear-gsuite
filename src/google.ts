@@ -181,6 +181,7 @@ function pruneSyncIdDuplicates(
 
     for (const duplicate of syncMatches) {
       if (!duplicate.id || duplicate.id === canonicalId) continue;
+      if (duplicate.status === "cancelled") continue;
       yield* deleteCalendarEvent(token, calendarId, duplicate.id);
       console.log(`removed-duplicate\t${event.id}\t${duplicate.id}`);
     }
@@ -208,6 +209,7 @@ function pruneSyncIdDuplicates(
 
     for (const candidate of candidates) {
       if (!candidate.id || candidate.id === canonicalId) continue;
+      if (candidate.status === "cancelled") continue;
       if (seenCandidateIds.has(candidate.id)) continue;
       seenCandidateIds.add(candidate.id);
       if ((candidate.summary || "") !== event.summary) continue;
