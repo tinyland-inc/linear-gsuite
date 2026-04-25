@@ -93,7 +93,7 @@ function randomState() {
   return b64url(crypto.randomBytes(24));
 }
 
-function stableGoogleEventId(identityKey: string) {
+export function stableGoogleEventId(identityKey: string) {
   return `lgs${crypto.createHash("sha1").update(identityKey).digest("hex")}`;
 }
 
@@ -137,20 +137,33 @@ function listCalendarEvents(
   searchParams: Record<string, string | undefined>
 ) {
   return Effect.gen(function* () {
-    const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (value) url.searchParams.set(key, value);
+    const allItems: GoogleCalendarEvent[] = [];
+    let pageToken: string | undefined;
+
+    for (let page = 0; page < 50; page += 1) {
+      const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
+      for (const [key, value] of Object.entries(searchParams)) {
+        if (value) url.searchParams.set(key, value);
+      }
+      if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+      const result = yield* apiRequestWithRetry(token, "GET", url.toString());
+      if (!result.ok) {
+        return yield* Effect.fail(
+          fail(`Failed to list calendar events: ${result.status} ${JSON.stringify(result.data)}`)
+        );
+      }
+
+      const data = result.data as Record<string, unknown>;
+      const items = Array.isArray(data.items) ? (data.items as GoogleCalendarEvent[]) : [];
+      allItems.push(...items);
+
+      const next = typeof data.nextPageToken === "string" ? data.nextPageToken : "";
+      if (!next) break;
+      pageToken = next;
     }
-    const result = yield* apiRequestWithRetry(token, "GET", url.toString());
-    if (!result.ok) {
-      return yield* Effect.fail(
-        fail(`Failed to list calendar events: ${result.status} ${JSON.stringify(result.data)}`)
-      );
-    }
-    const items = Array.isArray((result.data as Record<string, unknown>).items)
-      ? ((result.data as Record<string, unknown>).items as GoogleCalendarEvent[])
-      : [];
-    return items;
+
+    return allItems;
   });
 }
 
@@ -877,6 +890,59 @@ export function syncCalendar(options: SyncOptions, cwd = process.cwd()) {
       yield* pruneSyncIdDuplicates(token.accessToken, runtime.calendarId, event);
       console.log(`created\t${event.id}`);
     }
+
+    const removedCount = yield* reconcileStaleEvents(
+      token.accessToken,
+      runtime.calendarId,
+      runtime.definition,
+      options.dryRun ?? false
+    );
+    if (removedCount > 0) {
+      console.log(`reconciled\t${removedCount}\tstale events`);
+    }
+  });
+}
+
+export function reconcileStaleEvents(
+  token: string,
+  calendarId: string,
+  definition: LoadedCalendarDefinition,
+  dryRun: boolean
+) {
+  return Effect.gen(function* () {
+    const expectedIds = new Set(
+      definition.events.map((e) => stableGoogleEventId(e.identityKey))
+    );
+    const activeSourceIds = new Set(definition.sources.map((s) => s.id));
+    let removedCount = 0;
+
+    for (const sourceId of activeSourceIds) {
+      const gcalEvents = yield* listCalendarEvents(token, calendarId, {
+        privateExtendedProperty: `source_id=${sourceId}`,
+        singleEvents: "false",
+        maxResults: "2500"
+      });
+
+      for (const gcalEvent of gcalEvents) {
+        if (!gcalEvent.id) continue;
+        if (gcalEvent.status === "cancelled") continue;
+        const props = gcalEvent.extendedProperties?.private ?? {};
+        if (props.source !== "linear-gsuite") continue;
+        if (expectedIds.has(props.google_event_id || gcalEvent.id)) continue;
+
+        if (dryRun) {
+          console.log(`would-remove-stale\t${props.sync_id || gcalEvent.id}\t${gcalEvent.id}`);
+          removedCount += 1;
+          continue;
+        }
+
+        yield* deleteCalendarEvent(token, calendarId, gcalEvent.id);
+        console.log(`removed-stale\t${props.sync_id || gcalEvent.id}\t${gcalEvent.id}`);
+        removedCount += 1;
+      }
+    }
+
+    return removedCount;
   });
 }
 
