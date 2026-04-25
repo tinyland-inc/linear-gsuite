@@ -1,0 +1,31 @@
+site_name: linear-gsuite
+site_description: Linear and Google Calendar automation toolkit
+repo_url: https://github.com/tinyland-inc/linear-gsuite
+edit_uri: edit/main/docs/
+
+nav:
+  - Overview: index.md
+  - Getting Started: guides/getting-started.md
+  - Authentication: guides/authentication.md
+  - Configuration: guides/configuration.md
+  - CLI Reference: guides/cli-reference.md
+  - Home Manager: guides/home-manager.md
+  - Extending: guides/extending.md
+  - Troubleshooting: guides/troubleshooting.md
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.sections
+
+markdown_extensions:
+  - admonitions
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+docs_dir: docs
