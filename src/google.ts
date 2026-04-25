@@ -158,7 +158,7 @@ function deleteCalendarEvent(token: string, calendarId: string, eventId: string)
   return Effect.gen(function* () {
     const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=none`;
     const result = yield* apiRequestWithRetry(token, "DELETE", url);
-    if (!(result.ok || result.status === 404)) {
+    if (!(result.ok || result.status === 404 || result.status === 410)) {
       return yield* Effect.fail(
         fail(`Failed to delete duplicate event ${eventId}: ${result.status} ${JSON.stringify(result.data)}`)
       );

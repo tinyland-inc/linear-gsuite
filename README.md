@@ -38,6 +38,13 @@ Install dependencies:
 pnpm install
 ```
 
+Show the CLI and installed build identity:
+
+```bash
+pnpm exec tsx src/cli.ts version
+linear-gsuite --version
+```
+
 Authenticate once:
 
 ```bash
@@ -49,6 +56,10 @@ Run doctor against an example manifest:
 ```bash
 pnpm exec tsx src/cli.ts doctor --config examples/tinyland-business-ops/linear-gsuite.package.json
 ```
+
+`doctor` is the first health check for operators. For source adapters such as
+`linear-issues`, it reports whether required environment bindings are set or
+available through `NAME_FILE` without printing secret values.
 
 Sync events:
 
@@ -116,6 +127,12 @@ Example:
 That installs the CLI, writes `~/.config/linear-gsuite/config.json`, and can install the macOS `launchd` sync agent during activation.
 
 Use `launchd.environmentFromFiles` for secrets such as `LINEAR_API_KEY`. Home Manager passes these through as `LINEAR_API_KEY_FILE=/path`, and `linear-gsuite` reads the file at runtime. This is the intended path for `linear-issues` sources.
+
+The corresponding CLI contract is:
+
+```bash
+LINEAR_API_KEY_FILE=/path/to/secret linear-gsuite launchd install sync --config /path/to/linear-gsuite.package.json
+```
 
 There is also a concrete Tinyland example in:
 

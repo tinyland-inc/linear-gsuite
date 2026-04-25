@@ -102,15 +102,78 @@ function trimTrailingLineEndings(value: string) {
   return value.replace(/[\r\n]+$/, "");
 }
 
+export interface EnvironmentRequirementStatus {
+  name: string;
+  valueSet: boolean;
+  fileVariable: string;
+  file?: string;
+  fileExists: boolean;
+  fileReadable: boolean;
+}
+
+export function inspectEnvironmentRequirement(name: string, env: NodeJS.ProcessEnv = process.env): EnvironmentRequirementStatus {
+  const fileVariable = `${name}_FILE`;
+  const file = env[fileVariable];
+  let fileExists = false;
+  let fileReadable = false;
+
+  if (file) {
+    const resolved = expandHome(file);
+    fileExists = fs.existsSync(resolved);
+    if (fileExists) {
+      try {
+        fs.accessSync(resolved, fs.constants.R_OK);
+        fileReadable = true;
+      } catch {
+        fileReadable = false;
+      }
+    }
+  }
+
+  return {
+    name,
+    valueSet: Boolean(env[name]),
+    fileVariable,
+    file,
+    fileExists,
+    fileReadable
+  };
+}
+
+export function formatEnvironmentRequirementStatus(status: EnvironmentRequirementStatus) {
+  if (status.valueSet && status.file) {
+    const fileState = status.fileReadable ? "readable" : status.fileExists ? "unreadable" : "missing";
+    return `${status.name}: set; ${status.fileVariable}=${status.file} (${fileState})`;
+  }
+  if (status.valueSet) return `${status.name}: set`;
+  if (status.file) {
+    if (status.fileReadable) return `${status.name}: available via ${status.fileVariable}=${status.file} (readable)`;
+    const fileState = status.fileExists ? "unreadable" : "missing";
+    return `${status.name}: missing; ${status.fileVariable}=${status.file} (${fileState})`;
+  }
+  return `${status.name}: missing; ${status.fileVariable}: missing`;
+}
+
+export function hydrateEnvironmentRequirement(name: string, env: NodeJS.ProcessEnv = process.env) {
+  if (!name || env[name]) return;
+  const file = env[`${name}_FILE`];
+  if (!file) return;
+  const resolved = expandHome(file);
+  if (!fs.existsSync(resolved)) {
+    throw fail(`Environment file for ${name} not found: ${file}`);
+  }
+  try {
+    fs.accessSync(resolved, fs.constants.R_OK);
+  } catch {
+    throw fail(`Environment file for ${name} is not readable: ${file}`);
+  }
+  env[name] = trimTrailingLineEndings(fs.readFileSync(resolved, "utf8"));
+}
+
 export function hydrateProcessEnvFromFiles(env: NodeJS.ProcessEnv = process.env) {
   for (const [name, file] of Object.entries(env)) {
     if (!name.endsWith("_FILE") || !file) continue;
     const targetName = name.slice(0, -5);
-    if (!targetName || env[targetName]) continue;
-    const resolved = expandHome(file);
-    if (!fs.existsSync(resolved)) {
-      throw fail(`Environment file for ${targetName} not found: ${file}`);
-    }
-    env[targetName] = trimTrailingLineEndings(fs.readFileSync(resolved, "utf8"));
+    hydrateEnvironmentRequirement(targetName, env);
   }
 }

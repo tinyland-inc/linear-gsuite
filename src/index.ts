@@ -4,3 +4,4 @@ export * from "./launchd.js";
 export * from "./linear.js";
 export * from "./types.js";
 export * from "./utils.js";
+export * from "./version.js";

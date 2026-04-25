@@ -8,8 +8,15 @@
 
   outputs = { self, nixpkgs, flake-utils }:
     let
+      sourceRevision = self.shortRev or self.dirtyShortRev or "unknown";
+      sourceDirty = !(self ? rev);
+      packageVersion = "0.1.0-dev+${sourceRevision}";
       overlay = final: prev: {
-        linear-gsuite = final.callPackage ./nix/package.nix { };
+        linear-gsuite = final.callPackage ./nix/package.nix {
+          version = packageVersion;
+          buildRevision = sourceRevision;
+          buildDirty = sourceDirty;
+        };
       };
     in
     flake-utils.lib.eachDefaultSystem (system:
